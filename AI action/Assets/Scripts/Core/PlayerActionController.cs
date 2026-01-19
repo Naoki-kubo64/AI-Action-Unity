@@ -10,19 +10,26 @@ namespace AIAction.Core
     public class PlayerActionController : MonoBehaviour
     {
         [Header("Movement Settings")]
-        public float moveSpeed = 5f;
-        public float runMultiplier = 1.5f;
+        public float creepSpeed = 2f;
+        public float walkSpeed = 5f;
+        public float runSpeed = 9f;
+        public float dashSpeed = 14f;
+        
         public float stepSpeed = 2f;
         public float slideSpeed = 8f;
         
-        [Header("Jump Settings")]
-        public float hopForce = 5f;
-        public float jumpForce = 10f;
-        public float highJumpForce = 14f;
-        public float longJumpForceX = 5f;
-        public float longJumpForceY = 8f;
-        public float wallKickForceX = 8f;
-        public float wallKickForceY = 10f;
+        [Header("Vertical Jump Settings")]
+        public float hopForce = 5f;       // Little hop
+        public float jumpForce = 10f;     // Standard jump
+        public float highJumpForce = 15f; // High jump
+
+        [Header("Directional Jump Settings (X, Y)")]
+        // Short: small gap
+        public Vector2 jumpShortForce = new Vector2(4f, 6f);
+        // Medium: standard gap
+        public Vector2 jumpMediumForce = new Vector2(7f, 9f);
+        // Long: wide gap
+        public Vector2 jumpLongForce = new Vector2(10f, 11f);
 
         [Header("Physics Constraints")]
         public Vector2 normalColliderSize = new Vector2(1f, 2f);
@@ -93,7 +100,6 @@ namespace AIAction.Core
             }
 
             isExecuting = false;
-            // Notify game that actions are done
         }
 
         private IEnumerator ExecuteAction(AIActionResponse action)
@@ -104,53 +110,81 @@ namespace AIAction.Core
 
             Debug.Log($"Executing Action: {act} for {duration}s");
 
-            // One-shot actions
+            // --- Impulse Actions (One-shot) ---
             switch (act)
             {
-                case "HOP": Jump(hopForce); break;
-                case "JUMP": Jump(jumpForce); break;
+                // Vertical
+                case "HOP":       Jump(hopForce); break;
+                case "JUMP":      Jump(jumpForce); break;
                 case "HIGH_JUMP": Jump(highJumpForce); break;
-                case "LONG_JUMP_RIGHT": LongJump(1); break;
-                case "LONG_JUMP_LEFT": LongJump(-1); break;
-                case "WALL_KICK_RIGHT": WallKick(1); break;
-                case "WALL_KICK_LEFT": WallKick(-1); break;
+
+                // Directional (Right)
+                case "JUMP_RIGHT_SHORT":  DirectionalJump(1, jumpShortForce); break;
+                case "JUMP_RIGHT_MEDIUM": DirectionalJump(1, jumpMediumForce); break;
+                case "JUMP_RIGHT_LONG":   DirectionalJump(1, jumpLongForce); break;
+
+                // Directional (Left)
+                case "JUMP_LEFT_SHORT":   DirectionalJump(-1, jumpShortForce); break;
+                case "JUMP_LEFT_MEDIUM":  DirectionalJump(-1, jumpMediumForce); break;
+                case "JUMP_LEFT_LONG":    DirectionalJump(-1, jumpLongForce); break;
+                
+                // Legacy / Aliases
+                case "LONG_JUMP_RIGHT":   DirectionalJump(1, jumpLongForce); break;
+                case "LONG_JUMP_LEFT":    DirectionalJump(-1, jumpLongForce); break;
+
                 case "STUMBLE": 
                     if(anim) anim.SetTrigger("Stumble");
                     break;
+                case "STOP":
+                    Move(0, 0);
+                    break;
             }
 
-            // Continuous actions
+            // --- Continuous Actions (Over Duration) ---
+            // If duration is 0, we can skip loop unless it's a move command that needs at least 1 frame?
+            // Usually AI sends duration > 0 for moves.
+            
             while (timer < duration)
             {
                 timer += Time.deltaTime;
                 
                 switch (act)
                 {
-                    case "STEP_RIGHT": Move(stepSpeed, 1); break;
-                    case "STEP_LEFT": Move(stepSpeed, -1); break;
-                    case "WALK_RIGHT": Move(moveSpeed, 1); break;
-                    case "WALK_LEFT": Move(moveSpeed, -1); break;
-                    case "RUN_RIGHT": Move(moveSpeed * runMultiplier, 1); break;
-                    case "RUN_LEFT": Move(moveSpeed * runMultiplier, -1); break;
+                    // --- Right Movement ---
+                    case "CREEP_RIGHT": Move(creepSpeed, 1); break;
+                    case "WALK_RIGHT":  Move(walkSpeed, 1); break;
+                    case "RUN_RIGHT":   Move(runSpeed, 1); break;
+                    case "DASH_RIGHT":  Move(dashSpeed, 1); break;
                     
-                    case "SLIDE_RIGHT": Slide(1); break;
-                    case "SLIDE_LEFT": Slide(-1); break;
-                    
-                    case "PUSH_RIGHT": Move(moveSpeed * 0.5f, 1); break;
-                    case "PUSH_LEFT": Move(moveSpeed * 0.5f, -1); break;
+                    case "STEP_RIGHT":  Move(stepSpeed, 1); break; // Slow precise step
 
-                    case "WAIT": Move(0, 0); break;
+                    // --- Left Movement ---
+                    case "CREEP_LEFT":  Move(creepSpeed, -1); break;
+                    case "WALK_LEFT":   Move(walkSpeed, -1); break;
+                    case "RUN_LEFT":    Move(runSpeed, -1); break;
+                    case "DASH_LEFT":   Move(dashSpeed, -1); break;
+
+                    case "STEP_LEFT":   Move(stepSpeed, -1); break;
+
+                    // --- Sliding ---
+                    case "SLIDE_RIGHT": Slide(1); break;
+                    case "SLIDE_LEFT":  Slide(-1); break;
+                    
+                    // --- Utility ---
+                    case "WAIT":        Move(0, 0); break;
                 }
 
                 yield return null;
             }
 
+            // End of action cleanup
             Move(0, 0);
             ResetCollider();
         }
 
         private void Move(float speed, int dir)
         {
+            // Preserve Y velocity for gravity
             rb.linearVelocity = new Vector2(speed * dir, rb.linearVelocity.y);
             UpdateVisuals(dir);
         }
@@ -186,20 +220,15 @@ namespace AIAction.Core
             }
         }
 
-        private void LongJump(int dir)
+        private void DirectionalJump(int dir, Vector2 forceInfo)
         {
             if (Mathf.Abs(rb.linearVelocity.y) < 0.1f)
             {
-                rb.AddForce(new Vector2(dir * longJumpForceX, longJumpForceY), ForceMode2D.Impulse);
+                // ForceInfo.x is magnitude, multiply by dir
+                rb.AddForce(new Vector2(forceInfo.x * dir, forceInfo.y), ForceMode2D.Impulse);
                 UpdateVisuals(dir);
+                if(anim) anim.SetTrigger("Jump");
             }
-        }
-
-        private void WallKick(int dir)
-        {
-            rb.linearVelocity = Vector2.zero;
-            rb.AddForce(new Vector2(dir * wallKickForceX, wallKickForceY), ForceMode2D.Impulse);
-            UpdateVisuals(dir);
         }
 
         private void UpdateVisuals(int dir)
@@ -208,6 +237,7 @@ namespace AIAction.Core
             {
                 sprite.flipX = dir < 0;
             }
+            // Simple run check
             if (anim != null)
             {
                 anim.SetBool("IsRunning", Mathf.Abs(rb.linearVelocity.x) > 0.1f);

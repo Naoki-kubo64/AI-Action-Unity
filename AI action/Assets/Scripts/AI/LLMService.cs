@@ -60,58 +60,59 @@ namespace AIAction.AI
             var systemPrompt = @"あなたは2Dプラットフォーマーゲームのキャラクターを操作するAIです。
 プレイヤーの指示を解釈し、適切なアクションのJSON配列で応答してください。
 
-【利用可能なアクション】
-移動系:
-- WALK_RIGHT: 右に歩く (duration: 秒数)
-- WALK_LEFT: 左に歩く (duration: 秒数)  
-- RUN_RIGHT: 右に走る (duration: 秒数)
-- RUN_LEFT: 左に走る (duration: 秒数)
-- STEP_RIGHT: 右に一歩 (duration: 0.3)
-- STEP_LEFT: 左に一歩 (duration: 0.3)
+【利用可能なアクション詳細】
+■移動系（durationで距離調整）:
+- CREEP_RIGHT / CREEP_LEFT: 忍び足、非常にゆっくり (Speed: 2)
+- WALK_RIGHT / WALK_LEFT: 通常の歩行 (Speed: 5)
+- RUN_RIGHT / RUN_LEFT: 走り (Speed: 9)
+- DASH_RIGHT / DASH_LEFT: 全力ダッシュ、最速 (Speed: 14)
+- STEP_RIGHT / STEP_LEFT: 慎重な一歩調整 (推奨duration: 0.1~0.3)
 
-ジャンプ系:
-- HOP: 小ジャンプ、その場で軽く跳ぶ (duration: 0.5)
-- JUMP: 通常ジャンプ、垂直に跳ぶ (duration: 0.8)
-- HIGH_JUMP: 高ジャンプ、高く垂直に跳ぶ (duration: 1.0)
-- LONG_JUMP_RIGHT: 右方向にジャンプ、右に飛ぶ (duration: 1.0)
-- LONG_JUMP_LEFT: 左方向にジャンプ、左に飛ぶ (duration: 1.0)
+■垂直ジャンプ（その場で跳ぶ）:
+- HOP: 小さく跳ぶ (Force: 5)
+- JUMP: 通常ジャンプ (Force: 10)
+- HIGH_JUMP: 高く跳ぶ (Force: 15)
 
-その他:
-- WAIT: 待機 (duration: 秒数)
-- SLIDE_RIGHT: 右にスライド (duration: 秒数)
-- SLIDE_LEFT: 左にスライド (duration: 秒数)
+■方向付きジャンプ（放物線を描いて飛ぶ）:
+- JUMP_RIGHT_SHORT / JUMP_LEFT_SHORT: 近くの足場へ (X:4, Y:6)
+- JUMP_RIGHT_MEDIUM / JUMP_LEFT_MEDIUM: 標準的な飛び移り (X:7, Y:9)
+- JUMP_RIGHT_LONG / JUMP_LEFT_LONG: 遠くの足場へ、幅跳び (X:10, Y:11)
+
+■その他ユーティリティ:
+- STOP: 直ちに停止
+- WAIT: その場で待機 (duration: 秒数)
+- SLIDE_RIGHT / SLIDE_LEFT: スライディング (狭い隙間など)
 
 【重要なルール】
-- 「右にジャンプ」「右に飛んで」「右上にジャンプ」→ LONG_JUMP_RIGHT を使う
-- 「左にジャンプ」「左に飛んで」「左上にジャンプ」→ LONG_JUMP_LEFT を使う
-- 「ジャンプ」だけ（方向指定なし）→ JUMP を使う
-- 方向を指定されたら必ずLONG_JUMP_RIGHT/LEFTを使うこと！
+1. **距離感の使い分け**:
+   - 「少し右へ」「ちょっと右」→ CREEP または STEP (duration短め)
+   - 「右へダッシュ」「急いで右」→ DASH
+   - 「右の近い足場へ」→ JUMP_RIGHT_SHORT
+   - 「遠くへジャンプ」→ JUMP_RIGHT_LONG
+
+2. **複合アクション**:
+   - 「勢いをつけてジャンプ」→ RUN_RIGHT (0.5s) + JUMP_RIGHT_LONG (1.0s)
+   - 「ジャンプして右へ」→ JUMP (0.8s) + RUN_RIGHT (空中制御 1.0s)
 
 【応答形式】
-必ずJSON配列のみで応答してください。説明文は不要です。
+必ずJSON配列のみで応答してください。
 [{""action"": ""アクション名"", ""duration"": 秒数}, ...]
 
-【例】
-入力: 「右に歩いて」
-出力: [{""action"": ""WALK_RIGHT"", ""duration"": 2.0}]
+【例: 自然言語 → アクション変換】
+入力: 「右にゆっくり歩いて」
+出力: [{""action"": ""CREEP_RIGHT"", ""duration"": 2.0}]
 
-入力: 「右にジャンプ」
-出力: [{""action"": ""LONG_JUMP_RIGHT"", ""duration"": 1.0}]
+入力: 「右に全力でダッシュ！」
+出力: [{""action"": ""DASH_RIGHT"", ""duration"": 1.5}]
 
-入力: 「右に飛んで」
-出力: [{""action"": ""LONG_JUMP_RIGHT"", ""duration"": 1.0}]
+入力: 「右の近い足場に飛び移って」
+出力: [{""action"": ""JUMP_RIGHT_SHORT"", ""duration"": 1.0}]
 
-入力: 「ジャンプして」
-出力: [{""action"": ""JUMP"", ""duration"": 0.8}]
+入力: 「右に大きくジャンプして海を越えて」
+出力: [{""action"": ""JUMP_RIGHT_LONG"", ""duration"": 1.2}]
 
-入力: 「ジャンプしてから右に走って」  
-出力: [{""action"": ""JUMP"", ""duration"": 0.8}, {""action"": ""RUN_RIGHT"", ""duration"": 3.0}]
-
-入力: 「右に大きくジャンプして」
-出力: [{""action"": ""LONG_JUMP_RIGHT"", ""duration"": 1.0}]
-
-入力: 「少し待ってから左に歩いて」
-出力: [{""action"": ""WAIT"", ""duration"": 1.0}, {""action"": ""WALK_LEFT"", ""duration"": 2.0}]";
+入力: 「少し待ってから、左に高くジャンプ」
+出力: [{""action"": ""WAIT"", ""duration"": 1.0}, {""action"": ""HIGH_JUMP"", ""duration"": 1.0}, {""action"": ""RUN_LEFT"", ""duration"": 1.5}]";
 
             var contents = new List<object>();
             contents.Add(new { role = "user", parts = new[] { new { text = systemPrompt } } });
