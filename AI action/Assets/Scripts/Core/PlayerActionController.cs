@@ -36,6 +36,8 @@ namespace AIAction.Core
 
         private bool isExecuting = false;
         private Queue<AIActionResponse> actionQueue = new Queue<AIActionResponse>();
+        private Vector2 originalColliderSize;
+        private Vector2 originalColliderOffset;
 
         private void Awake()
         {
@@ -43,8 +45,11 @@ namespace AIAction.Core
             anim = GetComponent<Animator>();
             sprite = GetComponent<SpriteRenderer>();
             col = GetComponent<BoxCollider2D>();
-            // col.size might be set in editor, but we can init here
-            if(col) col.size = normalColliderSize;
+            // Store the original collider size set in the editor
+            if(col) {
+                originalColliderSize = col.size;
+                originalColliderOffset = col.offset;
+            }
         }
 
         private void Start()
@@ -166,8 +171,8 @@ namespace AIAction.Core
         {
             if(col)
             {
-                col.size = normalColliderSize;
-                col.offset = Vector2.zero;
+                col.size = originalColliderSize;
+                col.offset = originalColliderOffset;
             }
             if(anim) anim.SetBool("IsSliding", false);
         }
