@@ -1,4 +1,5 @@
 using UnityEngine;
+using AIAction.UI;
 
 namespace AIAction.Level
 {
@@ -35,12 +36,26 @@ namespace AIAction.Level
                 if (type == GimmickType.Spikes)
                 {
                     Debug.Log("Player hit spikes!");
-                    LevelManager.Instance.RestartLevel();
+                    if (GameResultUI.Instance != null)
+                    {
+                        GameResultUI.Instance.ShowGameOver();
+                    }
+                    else
+                    {
+                        LevelManager.Instance?.RestartLevel();
+                    }
                 }
                 else if (type == GimmickType.Goal)
                 {
                     Debug.Log("Level Clear!");
-                    LevelManager.Instance.NextLevel();
+                    if (GameResultUI.Instance != null)
+                    {
+                        GameResultUI.Instance.ShowClear();
+                    }
+                    else
+                    {
+                        LevelManager.Instance?.NextLevel();
+                    }
                 }
             }
         }
