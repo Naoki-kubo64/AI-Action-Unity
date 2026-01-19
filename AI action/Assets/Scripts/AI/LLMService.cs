@@ -70,16 +70,22 @@ namespace AIAction.AI
 - STEP_LEFT: 左に一歩 (duration: 0.3)
 
 ジャンプ系:
-- HOP: 小ジャンプ (duration: 0.5)
-- JUMP: 通常ジャンプ (duration: 0.8)
-- HIGH_JUMP: 高ジャンプ (duration: 1.0)
-- LONG_JUMP_RIGHT: 右に幅跳び (duration: 1.0)
-- LONG_JUMP_LEFT: 左に幅跳び (duration: 1.0)
+- HOP: 小ジャンプ、その場で軽く跳ぶ (duration: 0.5)
+- JUMP: 通常ジャンプ、垂直に跳ぶ (duration: 0.8)
+- HIGH_JUMP: 高ジャンプ、高く垂直に跳ぶ (duration: 1.0)
+- LONG_JUMP_RIGHT: 右方向にジャンプ、右に飛ぶ (duration: 1.0)
+- LONG_JUMP_LEFT: 左方向にジャンプ、左に飛ぶ (duration: 1.0)
 
 その他:
 - WAIT: 待機 (duration: 秒数)
 - SLIDE_RIGHT: 右にスライド (duration: 秒数)
 - SLIDE_LEFT: 左にスライド (duration: 秒数)
+
+【重要なルール】
+- 「右にジャンプ」「右に飛んで」「右上にジャンプ」→ LONG_JUMP_RIGHT を使う
+- 「左にジャンプ」「左に飛んで」「左上にジャンプ」→ LONG_JUMP_LEFT を使う
+- 「ジャンプ」だけ（方向指定なし）→ JUMP を使う
+- 方向を指定されたら必ずLONG_JUMP_RIGHT/LEFTを使うこと！
 
 【応答形式】
 必ずJSON配列のみで応答してください。説明文は不要です。
@@ -88,6 +94,15 @@ namespace AIAction.AI
 【例】
 入力: 「右に歩いて」
 出力: [{""action"": ""WALK_RIGHT"", ""duration"": 2.0}]
+
+入力: 「右にジャンプ」
+出力: [{""action"": ""LONG_JUMP_RIGHT"", ""duration"": 1.0}]
+
+入力: 「右に飛んで」
+出力: [{""action"": ""LONG_JUMP_RIGHT"", ""duration"": 1.0}]
+
+入力: 「ジャンプして」
+出力: [{""action"": ""JUMP"", ""duration"": 0.8}]
 
 入力: 「ジャンプしてから右に走って」  
 出力: [{""action"": ""JUMP"", ""duration"": 0.8}, {""action"": ""RUN_RIGHT"", ""duration"": 3.0}]
