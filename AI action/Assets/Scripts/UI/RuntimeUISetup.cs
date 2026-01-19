@@ -9,8 +9,30 @@ namespace AIAction.UI
     [ExecuteInEditMode]
     public class RuntimeUISetup : MonoBehaviour
     {
+        [Header("Japanese Font (drag NotoSansJP SDF here)")]
+        [SerializeField] private TMP_FontAsset japaneseFont;
+
         private void Awake()
         {
+            // If not assigned in Inspector, try loading from various paths
+            if (japaneseFont == null)
+            {
+                japaneseFont = Resources.Load<TMP_FontAsset>("Fonts/NotoSansJP-VariableFont_wght SDF");
+            }
+            if (japaneseFont == null)
+            {
+                // Try direct path
+                japaneseFont = Resources.Load<TMP_FontAsset>("NotoSansJP-VariableFont_wght SDF");
+            }
+            if (japaneseFont == null)
+            {
+                Debug.LogWarning("Japanese font not found! Using default font.");
+                japaneseFont = TMP_Settings.defaultFontAsset;
+            }
+            else
+            {
+                Debug.Log($"Japanese font loaded: {japaneseFont.name}");
+            }
             SetupUI();
         }
 
@@ -81,7 +103,7 @@ namespace AIAction.UI
                 TextMeshProUGUI inputText = text.AddComponent<TextMeshProUGUI>();
                 inputText.color = Color.white;
                 inputText.fontSize = 24;
-                inputText.font = TMP_Settings.defaultFontAsset;
+                inputText.font = japaneseFont;
                 
                 // Set RectTransform for text
                 RectTransform textRt = text.GetComponent<RectTransform>();
@@ -109,7 +131,7 @@ namespace AIAction.UI
                 logText.color = Color.yellow;
                 logText.fontSize = 20;
                 logText.alignment = TextAlignmentOptions.BottomLeft;
-                logText.font = TMP_Settings.defaultFontAsset;
+                logText.font = japaneseFont;
 
                 RectTransform rt = logObj.GetComponent<RectTransform>();
                 rt.anchorMin = new Vector2(0, 0);

@@ -85,13 +85,17 @@ namespace AIAction.AI
 
                 if (request.result != UnityWebRequest.Result.Success)
                 {
+                    Debug.LogError($"Gemini API Error: {request.error}");
+                    Debug.LogError($"Response: {request.downloadHandler.text}");
                     onError?.Invoke($"API Error: {request.error} - {request.downloadHandler.text}");
                 }
                 else
                 {
                     // Parse Gemini response
                     string response = request.downloadHandler.text;
+                    Debug.Log($"Gemini Raw Response: {response}");
                     string actionJson = ExtractActionJson(response);
+                    Debug.Log($"Extracted Action JSON: {actionJson}");
                     onSuccess?.Invoke(actionJson);
                 }
             }
