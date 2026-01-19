@@ -131,7 +131,8 @@ namespace AIAction.UI
                 logText.color = Color.yellow;
                 logText.fontSize = 20;
                 logText.alignment = TextAlignmentOptions.BottomLeft;
-                logText.font = japaneseFont;
+                // Use default font for log (better character coverage)
+                logText.font = TMP_Settings.defaultFontAsset;
 
                 RectTransform rt = logObj.GetComponent<RectTransform>();
                 rt.anchorMin = new Vector2(0, 0);
