@@ -37,10 +37,8 @@ namespace AIAction.Core
             if (player == null)
                 player = FindObjectOfType<PlayerActionController>();
 
-            if (promptInput != null)
-            {
-                promptInput.onSubmit.AddListener(OnPromptSubmit);
-            }
+            // Note: onSubmit listener is added in RuntimeUISetup.cs
+            // Do not add here to avoid duplicate registrations
 
             // Ensure game is running
             Time.timeScale = 1f;

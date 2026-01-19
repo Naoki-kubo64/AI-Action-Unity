@@ -42,22 +42,61 @@ namespace AIAction.AI
 
         public IEnumerator SendRequest(List<ChatMessage> history, Action<string> onSuccess, Action<string> onError)
         {
+            Debug.Log($"SendRequest called. API Key present: {!string.IsNullOrEmpty(apiKey) && apiKey != "YOUR_API_KEY"}");
+            
             if (string.IsNullOrEmpty(apiKey) || apiKey == "YOUR_API_KEY")
             {
                 // Mock response if no API key
+                Debug.Log("Using mock response (no API key)");
                 yield return new WaitForSeconds(0.5f);
-                onSuccess?.Invoke("[ { \"action\": \"WALK\", \"duration\": 1.0 } ]");
+                onSuccess?.Invoke("[ { \"action\": \"WALK_RIGHT\", \"duration\": 2.0 } ]");
                 yield break;
             }
 
+            Debug.Log("Sending real Gemini API request...");
             string url = $"{API_URL}?key={apiKey}";
             
-            // Build request body for Gemini API
-            var systemPrompt = "You are controlling a 2D platformer character. " +
-                "Respond ONLY with a JSON array of actions. " +
-                "Available actions: WALK_RIGHT, WALK_LEFT, RUN_RIGHT, RUN_LEFT, JUMP, HOP, WAIT. " +
-                "Format: [{\"action\": \"ACTION_NAME\", \"duration\": seconds}]. " +
-                "Example: User says 'walk right' -> [{\"action\": \"WALK_RIGHT\", \"duration\": 2.0}]";
+            // Enhanced system prompt for platformer game
+            var systemPrompt = @"あなたは2Dプラットフォーマーゲームのキャラクターを操作するAIです。
+プレイヤーの指示を解釈し、適切なアクションのJSON配列で応答してください。
+
+【利用可能なアクション】
+移動系:
+- WALK_RIGHT: 右に歩く (duration: 秒数)
+- WALK_LEFT: 左に歩く (duration: 秒数)  
+- RUN_RIGHT: 右に走る (duration: 秒数)
+- RUN_LEFT: 左に走る (duration: 秒数)
+- STEP_RIGHT: 右に一歩 (duration: 0.3)
+- STEP_LEFT: 左に一歩 (duration: 0.3)
+
+ジャンプ系:
+- HOP: 小ジャンプ (duration: 0.5)
+- JUMP: 通常ジャンプ (duration: 0.8)
+- HIGH_JUMP: 高ジャンプ (duration: 1.0)
+- LONG_JUMP_RIGHT: 右に幅跳び (duration: 1.0)
+- LONG_JUMP_LEFT: 左に幅跳び (duration: 1.0)
+
+その他:
+- WAIT: 待機 (duration: 秒数)
+- SLIDE_RIGHT: 右にスライド (duration: 秒数)
+- SLIDE_LEFT: 左にスライド (duration: 秒数)
+
+【応答形式】
+必ずJSON配列のみで応答してください。説明文は不要です。
+[{""action"": ""アクション名"", ""duration"": 秒数}, ...]
+
+【例】
+入力: 「右に歩いて」
+出力: [{""action"": ""WALK_RIGHT"", ""duration"": 2.0}]
+
+入力: 「ジャンプしてから右に走って」  
+出力: [{""action"": ""JUMP"", ""duration"": 0.8}, {""action"": ""RUN_RIGHT"", ""duration"": 3.0}]
+
+入力: 「右に大きくジャンプして」
+出力: [{""action"": ""LONG_JUMP_RIGHT"", ""duration"": 1.0}]
+
+入力: 「少し待ってから左に歩いて」
+出力: [{""action"": ""WAIT"", ""duration"": 1.0}, {""action"": ""WALK_LEFT"", ""duration"": 2.0}]";
 
             var contents = new List<object>();
             contents.Add(new { role = "user", parts = new[] { new { text = systemPrompt } } });
@@ -132,26 +171,79 @@ namespace AIAction.AI
             // Gemini response format: {"candidates":[{"content":{"parts":[{"text":"..."}]}}]}
             try
             {
-                int textStart = geminiResponse.IndexOf("\"text\":\"") + 8;
-                int textEnd = geminiResponse.IndexOf("\"", textStart);
-                while (textEnd > 0 && geminiResponse[textEnd - 1] == '\\')
+                Debug.Log($"Parsing Gemini response...");
+                
+                // Find the text content within the response
+                int textIndex = geminiResponse.IndexOf("\"text\"");
+                if (textIndex < 0)
                 {
-                    textEnd = geminiResponse.IndexOf("\"", textEnd + 1);
+                    Debug.LogWarning("No 'text' field found in response");
+                    return "[]";
                 }
+                
+                // Extract the text value - find the content between quotes after "text":"
+                int colonIndex = geminiResponse.IndexOf(":", textIndex);
+                int textStart = geminiResponse.IndexOf("\"", colonIndex + 1) + 1;
+                
+                // Find the end of the text value (complex due to escaping)
+                int textEnd = textStart;
+                bool inEscape = false;
+                for (int i = textStart; i < geminiResponse.Length; i++)
+                {
+                    if (inEscape)
+                    {
+                        inEscape = false;
+                        continue;
+                    }
+                    if (geminiResponse[i] == '\\')
+                    {
+                        inEscape = true;
+                        continue;
+                    }
+                    if (geminiResponse[i] == '"')
+                    {
+                        textEnd = i;
+                        break;
+                    }
+                }
+                
                 string text = geminiResponse.Substring(textStart, textEnd - textStart);
+                Debug.Log($"Raw text extracted: {text}");
+                
+                // Unescape the text
                 text = text.Replace("\\n", "\n").Replace("\\\"", "\"").Replace("\\\\", "\\");
+                Debug.Log($"Unescaped text: {text}");
+                
+                // Remove markdown code blocks if present (```json ... ```)
+                if (text.Contains("```"))
+                {
+                    int codeStart = text.IndexOf("```");
+                    int codeEnd = text.LastIndexOf("```");
+                    if (codeEnd > codeStart)
+                    {
+                        // Find the actual content after ```json or ```
+                        int contentStart = text.IndexOf("\n", codeStart);
+                        if (contentStart < 0) contentStart = codeStart + 3;
+                        text = text.Substring(contentStart, codeEnd - contentStart).Trim();
+                    }
+                }
                 
                 // Extract JSON array from text
                 int jsonStart = text.IndexOf("[");
                 int jsonEnd = text.LastIndexOf("]") + 1;
                 if (jsonStart >= 0 && jsonEnd > jsonStart)
                 {
-                    return text.Substring(jsonStart, jsonEnd - jsonStart);
+                    string json = text.Substring(jsonStart, jsonEnd - jsonStart);
+                    Debug.Log($"Final JSON: {json}");
+                    return json;
                 }
+                
+                Debug.LogWarning("No JSON array found in text");
                 return "[]";
             }
-            catch
+            catch (Exception e)
             {
+                Debug.LogError($"ExtractActionJson error: {e.Message}");
                 return "[]";
             }
         }
