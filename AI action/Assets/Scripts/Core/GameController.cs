@@ -97,9 +97,15 @@ namespace AIAction.Core
             }
             Log(actionLog);
 
-            // Actions will be processed by PlayerActionController
-            // After all actions complete, we should pause again
-            // This is handled via coroutine completion in PlayerActionController
+            // Forward actions to PlayerActionController
+            if (player != null)
+            {
+                player.OnActionsReceived(actions);
+            }
+            else
+            {
+                Debug.LogError("Player reference is missing in GameController!");
+            }
         }
 
         private void OnLLMError(string error)
